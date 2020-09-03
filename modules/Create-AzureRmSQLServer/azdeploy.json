@@ -1,0 +1,141 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "virtualMachineName": {
+      "type": "String",
+      "defaultValue": "myVM",
+      "metadata": {
+        "description": "The name of the VM"
+      }
+    },
+    "sqlSku": {
+      "type": "String",
+      "allowedValues": [
+        "Standard",
+        "Enterprise",
+        "SQLDEV",
+        "Web",
+        "Express"
+      ],
+      "defaultValue": "SQLDEV",
+      "metadata": {
+        "description": "SQL Server Sku"
+      }
+    },
+    "storageWorkloadType": {
+      "type": "String",
+      "allowedValues": [
+        "General",
+        "OLTP",
+        "DW"
+      ],
+      "defaultValue": "General",
+      "metadata": {
+        "description": "SQL Server Workload Type"
+      }
+    },
+    "sqlDataDisksCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "maxValue": 8,
+      "metadata": {
+        "description": "Amount of data disks (1TB each) for SQL Data files"
+      }
+    },
+    "dataPath": {
+      "type": "String",
+      "defaultValue": "F:\\SQLData",
+      "metadata": {
+        "description": "Path for SQL Data files. Please choose drive letter from F to Z, and other drives from A to E are reserved for system"
+      }
+    },
+    "sqlLogDisksCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "maxValue": 8,
+      "metadata": {
+        "description": "Amount of data disks (1TB each) for SQL Log files"
+      }
+    },
+    "logPath": {
+      "type": "String",
+      "defaultValue": "G:\\SQLLog",
+      "metadata": {
+        "description": "Path for SQL Log files. Please choose drive letter from F to Z and different than the one used for SQL data. Drive letter from A to E are reserved for system"
+      }
+    },
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Location for all resources."
+      },
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "sql_adminname": {
+      "type": "string"
+    },
+    "sql_adminpassword": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "diskConfigurationType": "NEW",
+    "dataDisksLuns": "[array(range(0 ,parameters('sqlDataDisksCount')))]",
+    "logDisksLuns": "[array(range(parameters('sqlDataDisksCount'), parameters('sqlLogDisksCount')))]",
+    "dataDisks": {
+      "createOption": "empty",
+      "caching": "ReadOnly",
+      "writeAcceleratorEnabled": false,
+      "storageAccountType": "Premium_LRS",
+      "diskSizeGB": 32
+    },
+    "tempDbPath":  "D:\\SQLTemp"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.SqlVirtualMachine/SqlVirtualMachines",
+      "apiVersion": "2017-03-01-preview",
+      "name": "[parameters('virtualMachineName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [],
+      "properties": {
+        "virtualMachineResourceId": "[resourceId('Microsoft.Compute/virtualMachines', parameters('virtualMachineName'))]",
+        "sqlManagement": "Full",
+        "SqlServerLicenseType": "PAYG",
+        "StorageConfigurationSettings": {
+          "DiskConfigurationType": "[variables('diskConfigurationType')]",
+          "StorageWorkloadType": "[parameters('storageWorkloadType')]",
+          "SQLDataSettings": {
+            "LUNs": "[variables('dataDisksLUNs')]",
+            "DefaultFilePath": "[parameters('dataPath')]"
+          },
+          "SQLLogSettings": {
+            "Luns": "[variables('logDisksLUNs')]",
+            "DefaultFilePath": "[parameters('logPath')]"
+          },
+          "SQLTempDbSettings": {
+            "DefaultFilePath": "[variables('tempDbPath')]"
+          }
+        },
+        "autoPatchingSettings": {
+          "enable": true,
+          "dayOfWeek": "Sunday",
+          "maintenanceWindowStartingHour": 2,
+          "maintenanceWindowDuration": 60
+        },
+        "serverConfigurationsManagementSettings": {
+        "sqlConnectivityUpdateSettings": {
+            "connectivityType": "PRIVATE",
+            "port": 1433,
+            "sqlAuthUpdateUserName": "[parameters('sql_adminname')]",
+            "sqlAuthUpdatePassword": "[parameters('sql_adminpassword')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}
